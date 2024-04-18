@@ -1,6 +1,7 @@
 import argparse
 from pydub import AudioSegment
 import os
+import audioread
 
 def split_audio(input_file, output_folder, segment_length_ms=15*60*1000):
     # Load the input audio file
@@ -23,27 +24,65 @@ def split_audio(input_file, output_folder, segment_length_ms=15*60*1000):
     print(f"{num_segments} audio segments created successfully.")
 
 def concatenate_segments(input_folder, output_file):
+    print("Input folder:", input_folder)
+    print("Output file:", output_file)
+
     # Get a list of all audio segments in the input folder
-    segment_files = [file for file in os.listdir(input_folder) if file.startswith('segment_') and file.endswith('.wav')]
+    segment_files = [
+        file for file in os.listdir(input_folder)
+        if any(char.isdigit() for char in file) and file.endswith(('.wav', '.mp3', '.flac', '.ogg'))  # Include files with numbers and specified formats
+    ]
     segment_files.sort()  # Ensure segments are concatenated in order
+
+    print("Input segment files:", segment_files)
 
     # Initialize the combined audio segment
     combined_audio = AudioSegment.empty()
+    secondary_segments = []
 
-    # Concatenate each audio segment to the combined audio segment
+    # Group segments with different suffixes for secondary concatenation
+    grouped_segments = {}
     for file in segment_files:
-        audio_segment = AudioSegment.from_file(os.path.join(input_folder, file))
-        combined_audio += audio_segment
+        prefix, suffix = extract_prefix_suffix(file)
+        if prefix not in grouped_segments:
+            grouped_segments[prefix] = []
+        grouped_segments[prefix].append((file, suffix))
 
-    # Ensure the output folder exists
-    output_folder = os.path.dirname(output_file)
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
+    # Concatenate primary segments and collect secondary segments
+    for prefix, files in grouped_segments.items():
+        primary_segments = [file for file, suffix in files if all(suffix == other_suffix for _, other_suffix in files)]
+        secondary_segments += [file for file, suffix in files if any(suffix != other_suffix for _, other_suffix in files)]
+        
+        # Concatenate primary segments
+        for file in primary_segments:
+            file_path = os.path.join(input_folder, file)
+            print("Processing primary file:", file_path)
+            segment = AudioSegment.from_file(file_path)
+            print("Segment duration:", len(segment), "ms")
+            combined_audio += segment
 
-    # Export the combined audio to the output file
-    combined_audio.export(output_file, format='wav')
+    # Concatenate secondary segments
+    for file in secondary_segments:
+        file_path = os.path.join(input_folder, file)
+        print("Processing secondary file:", file_path)
+        segment = AudioSegment.from_file(file_path)
+        print("Segment duration:", len(segment), "ms")
+        combined_audio += segment
+
+    # Extract the output file extension
+    output_extension = output_file.split('.')[-1]
+
+    # Export the combined audio to the output file using the determined format
+    combined_audio.export(output_file, format=output_extension)
 
     print("Audio segments concatenated successfully.")
+
+def extract_prefix_suffix(file_name):
+    # Extract prefix and suffix numbers from the filename
+    parts = file_name.split('_')
+    prefix = parts[0] if parts[0].isdigit() else ''
+    suffix = parts[-1] if parts[-1].isdigit() else ''
+    return prefix, suffix
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Split and concatenate audio files.")
