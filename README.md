@@ -12,4 +12,6 @@ These are tools that we use to restore Madhouse Live shows!
 We pre-process show audio into smaller 15 minute segments, to be processed through https://github.com/Anjok07/ultimatevocalremovergui with the 'best' Vocal models, then re-joined using the same script.
 Vocal audio can then be processed into transcribed soundbites, if desired.
 
-The datasets created with the transcribeBites script can be further augmented for voice cloning
+The datasets created with the transcribeBites script can be further utilized for voice cloning with https://github.com/collabora/WhisperSpeech
+
+splitOrConcatAudio can be used to string together files exported by the transcribeBites tool, into a single ogg file for use as input to WhisperSpeech. Just set the output file to a .ogg, and you're set!
